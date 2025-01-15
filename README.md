@@ -19,6 +19,6 @@ FukuiGrid is developed in Python 3 and requires the following packages to operat
 - matplotlib
 
 ## How to run FukuiGrid?
-FukuiGrid has been designed as a fully interactive code, where instructions and messages are displayed on the screen at each step, guiding users through the process without the need to know any code or commands. To run the code, simply execute: **python3 FukuiGrid.py**.
+FukuiGrid has been designed as a fully interactive code, where instructions and messages are displayed on the screen at each step, guiding users through the process without the need to know any code or commands. To run the code, simply execute: **python3 FukuiGrid.py**
 
 The [examples](https://github.com/cacarden/FukuiGrid/tree/main/examples) folder contains input and output files for some of the main functions, along with a small user manual to help you get started.
