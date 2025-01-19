@@ -458,30 +458,29 @@ def Fukui_interpolation(FILE1,FILE2,FILE3,FILE4, dn=None):
 
 def fukui_electrodes(FILE0,FILE1,Epsilon):
     """
-    Applies corrections to the electrostatic potential to calculate the Fukui function for electrode systems.
+        Applies corrections to the electrostatic potential to calculate the Fukui function for electrode systems.
 
-    Parameters:
-    -----------
-    FILE0 : str
-        Path to the charge density file of charge density of the neutral slab.
-    FILE1 : str
-        Path to the file of Fukui function.
-    Epsilon : float
-        Dielectric constant for the material under study.
+        Parameters:
+        -----------
+        FILE0 : str
+            Path to the charge density file of the neutral slab.
+        FILE1 : str
+            Path to the Fukui function file.
+        Epsilon : float
+            Dielectric constant for the material under study.
 
-    Returns:
-    --------
-    final_file : str
-        Path to the output file containing the Fukui Potential in VASP format.
+        Returns:
+        --------
+        final_file : str
+            Path to the output file containing the Fukui Potential in VASP format.
+        Additionally, it plots the planar averages of the potential to visualize the corrections.
 
-    Description:
-    ------------
-    This function performs a series of operations to process charge density and electrostatic potential data from electrode systems. 
-    It applies corrections to account for periodic boundary conditions, computes planar averages, and adjusts the electrostatic 
-    potential for the system under study. The final corrected electrostatic potential is used to compute the Fukui
+        Description:
+        ------------
+        This function processes charge density and electrostatic potential data from electrode systems. 
+        It applies corrections for periodic boundary conditions, computes planar averages, and adjusts the electrostatic 
+        potential for the system under study. The final corrected electrostatic potential is used to compute the Fukui LOCPOT.
     """
-
-    
     NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     
     NGX,NGY,NGZ = GRID
@@ -504,16 +503,17 @@ def fukui_electrodes(FILE0,FILE1,Epsilon):
     CHG = CHGtem/omega
     CHG00 = CHGtem00/omega
 
-    PLANAR_CHG00 = compute_planar_average_nz(CHG00, NGX, NGY, NGZ, 'z')
+    #Corrections and Poisson equations for the backgroun
 
     CHGG = np.fft.fftn(CHG, norm='ortho')    
     LOCPOTG = 4*np.pi*np.multiply(CHGG,GSQU)
     LOCPOT = np.fft.ifftn(LOCPOTG,norm='ortho').real * 27.2114
     
-    # Set number
+    #align the background 1e-4
     cota = 0.0001
     cota_ls = 0.02
-    
+
+    PLANAR_CHG00 = compute_planar_average_nz(CHG00, NGX, NGY, NGZ, 'z')
     valor_cercano, pos0 = closest_value_position(PLANAR_CHG00, cota)
     val_ls, pos_ls = closest_value_position(PLANAR_CHG00, cota_ls)
     
@@ -524,7 +524,7 @@ def fukui_electrodes(FILE0,FILE1,Epsilon):
     salida = np.array(salida)
     LOCPOT_cor = LOCPOT + salida[np.newaxis, np.newaxis, :]
         
-
+    # info for the plot
     PLANAR1 = compute_planar_average_nz(LOCPOT, NGX, NGY, NGZ, 'z')
     PLANAR2 = compute_planar_average_nz(LOCPOT_cor, NGX, NGY, NGZ, 'z')
         
@@ -543,6 +543,7 @@ def fukui_electrodes(FILE0,FILE1,Epsilon):
     
     plot_planar_average(z_axis, PLANAR1, PLANAR3)
 
+    # Write the file
     LOCPOTtem = convert_locpot(LOCPOT_cor2, NGX, NGY, NGZ)
 
     final_file = write_fukui_file(FILE1, NATOMS, LOCPOTtem, 'FUKUI.LOCPOT')
