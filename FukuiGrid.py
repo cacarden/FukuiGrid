@@ -1,16 +1,16 @@
 import numpy as np
 from numpy.linalg import norm
-from scipy import stats
-from scipy import ndimage
+from scipy import stats, ndimage
 import pandas as pd
-from scipy import stats
 import matplotlib.pyplot as plt
 import sys
 import math
 import os
 from scipy.interpolate import interp1d
 
-###funciones auxiliares. 
+############################################################
+#                   Utility Functions                      #
+############################################################
 
 def read_file_info(FILE1):
     NATOMS=0 
@@ -33,13 +33,13 @@ def read_file_info(FILE1):
                 POINTS = np.prod(GRID)
             elif i > NATOMS + 11:
                 break
-    SKIPELINES = NATOMS + 9
+    skiplines = NATOMS + 9
     if POINTS % 5 == 0:
         MAXROWS = int(POINTS/5)
     elif POINTS % 5 != 0:
         MAXROWS = int(np.ceil(POINTS/5))
     print('NATOMS = ', NATOMS, 'GRID = ',GRID, 'POINTS = ',POINTS)
-    return NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, SKIPELINES, MAXROWS
+    return NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, MAXROWS
 
 def process_file(filename, skip_lines, max_rows, points):
     df = pd.read_fwf(filename, colspecs='infer', skiprows=skip_lines, nrows=max_rows)
@@ -187,14 +187,14 @@ def plot_planar_average(z_axis, PLANAR1, PLANAR3):
     plt.legend()
     plt.savefig('PA_vFuk.svg')
 
-def read_data(FILE0, skipelines, maxrows, POINTS):
+def read_data(FILE0, skiplines, maxrows, POINTS):
     if (POINTS % 5) != 0:
       with open(FILE0, 'r') as file:
-         last_line = file.readlines()[maxrows + skipelines]
-         df0 = pd.read_table(FILE0, sep=r'\s+', skiprows=skipelines+1, names=range(5), nrows=maxrows)
+         last_line = file.readlines()[maxrows + skiplines]
+         df0 = pd.read_table(FILE0, sep=r'\s+', skiprows=skiplines+1, names=range(5), nrows=maxrows)
     else:
-        skiprowsn=skipelines + 1
-        df0 = pd.read_table(FILE0, sep=r'\s+', skiprows=skipelines+1, names=range(5), nrows=maxrows)
+        skiprowsn=skiplines + 1
+        df0 = pd.read_table(FILE0, sep=r'\s+', skiprows=skiplines+1, names=range(5), nrows=maxrows)
     return df0
 
 def closest_value_position(lst, number, percentage=0.4):
@@ -358,7 +358,7 @@ def read_xyzval(archivo):
     return np.array(datos)
 
 def compare_columns(col1, col2, tolerancia=1e-8):
-    """Compare xyz columns between two files"""
+    #Compare xyz columns between two files
     if col1.shape != col2.shape:
         print("The files have different sizes.")
         return False
@@ -392,46 +392,93 @@ def filter_values(datos1, datos2, ztol):
 
     print(f"Number of data filtered in MODELPOT file: {len(resultado)}")
     return resultado
-#####funciones principales
 
-def Fukui_interpolation(FILE1,FILE2,FILE3,FILE4, dn=None):
-    
-    #cuando llamemos la funcion hat que antes converit en dn en un array dn=np.array([n1, n2, n3, n4]
+############################################################
+#                     Main Functions                       #
+############################################################
+
+def Fukui_interpolation(FILE1,FILE2,FILE3,FILE4, dn=None):    
+    """
+    Computes the Fukui function via interpolation using charge density data from multiple electronic configurations.
+
+    Parameters:
+    -----------
+    FILE1 : str
+        Path to the first charge density file.
+    FILE2 : str
+        Path to the second charge density file.
+    FILE3 : str
+        Path to the third charge density file.
+    FILE4 : str
+        Path to the fourth charge density file.
+        These files must be provided in the same order as the electron perturbations in the `dn` array.
+    dn : numpy.ndarray, optional
+        Array of electron perturbation values corresponding to the charge density files.
+        Default: `np.array([-0.15, -0.1, -0.05, 0.0])`. 
+        Represents deviations from the neutral configuration (e.g., ±0.15 electrons).
+
+    Returns:
+    --------
+    final_file : str
+        Path to the output file containing the interpolated Fukui function in VASP format.
+
+    Description:
+    ------------
+    This function processes charge density data from four input files, each corresponding to a system with 
+    a different number of electrons. It calculates the Fukui function using interpolation based on the 
+    provided `dn` values, representing each configuration's electron perturbations.
+
+    Notes:
+    ------
+    - Ensure the `dn` array is consistent with the charge densities.
+    - This function relies on auxiliary functions such as `read_file_info`, `process_file`, and `calculate_fukui_and_r2`.
+
+    Example Usage:
+    --------------
+    ```
+    dn = np.array([-0.15, -0.1, -0.05, 0.0])
+    final_file = Fukui_interpolation("CHGCAR1", "CHGCAR2", "CHGCAR3", "CHGCAR_neutral", dn=dn)
+    print("Output written to:", final_file)
+    ```
+    """
 
     if dn is None:
         dn = np.array([-0.15, -0.1, -0.05, 0.0])
     print(r"\delta N is: ", dn)
     print ("Reading info from files")
 
-    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skipelines, maxrows = read_file_info(FILE1)
+    #  Reads structural and grid information from `FILE1` and processes the charge density data from `FILE1`, `FILE2`, `FILE3`, and `FILE4`.
     
-    print("Colecting info from different files")
-    CHG1 = process_file(FILE1, skipelines, maxrows, POINTS)
-    CHG2 = process_file(FILE2, skipelines, maxrows, POINTS)
-    CHG3 = process_file(FILE3, skipelines, maxrows, POINTS)
-    CHG4 = process_file(FILE4, skipelines, maxrows, POINTS)
+    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
+    
+    print("Collecting info from different files")
+    CHG1 = process_file(FILE1, skiplines, maxrows, POINTS)
+    CHG2 = process_file(FILE2, skiplines, maxrows, POINTS)
+    CHG3 = process_file(FILE3, skiplines, maxrows, POINTS)
+    CHG4 = process_file(FILE4, skiplines, maxrows, POINTS)
     
     print('CHG1',CHG1)
     print('CHG2',CHG2)
     print('CHG3',CHG3)
     print('CHG4',CHG4)
 
-    print('Making interpolation')
+    # Performs the interpolation to compute the Fukui function and R-squared values.
+    print('Performing interpolation')
 
     FUKUI, RSQUARED = calculate_fukui_and_r2(dn, CHG1, CHG2, CHG3, CHG4)
 
     print('Fukui size', FUKUI.size)
     print('Fukui', FUKUI) 
-
+    # Writes the resulting Fukui function to a new file, `CHGCAR_FUKUI.vasp`.
     final_file= write_fukui_file(FILE1, NATOMS, FUKUI, "CHGCAR_FUKUI.vasp")
     
-    print('FUKUI file was written')
+    print('FUKUI file was written', final_file)
     print("")
     return final_file
 
 def fukui_electrodes(FILE0,FILE1,Epsilon):
     
-    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skipelines, maxrows = read_file_info(FILE1)
+    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     
     NGX,NGY,NGZ = GRID
     
@@ -441,8 +488,8 @@ def fukui_electrodes(FILE0,FILE1,Epsilon):
     LATTCURB, VOL, omega= compute_lattice_parameters(alattvec, blattvec, clattvec)
     GSQU=compute_gsquared(GRID, LATTCURB, 0)        
 
-    df0 = read_data(FILE0,skipelines, maxrows, POINTS)
-    df = read_data(FILE1,skipelines, maxrows, POINTS)
+    df0 = read_data(FILE0,skiplines, maxrows, POINTS)
+    df = read_data(FILE1,skiplines, maxrows, POINTS)
                     
     CHG = missing(df,POINTS)
     CHG00 = missing(df0,POINTS)
@@ -499,7 +546,7 @@ def fukui_electrodes(FILE0,FILE1,Epsilon):
   
 def fukui_SCPC(FILE0,FILE1,FILE2,c):
     
-    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skipelines, maxrows = read_file_info(FILE1)
+    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     
     NGX,NGY,NGZ = GRID
     
@@ -509,8 +556,8 @@ def fukui_SCPC(FILE0,FILE1,FILE2,c):
     LATTCURB, VOL, omega= compute_lattice_parameters(alattvec, blattvec, clattvec)
     GSQU = compute_gsquared(GRID, LATTCURB, 0)
     
-    df0 = read_data(FILE0, skipelines, maxrows, POINTS)
-    df = read_data(FILE1, skipelines, maxrows, POINTS)
+    df0 = read_data(FILE0, skiplines, maxrows, POINTS)
+    df = read_data(FILE1, skiplines, maxrows, POINTS)
     
     CHG = missing(df,POINTS)
     CHG00 = missing(df0,POINTS)
@@ -575,19 +622,19 @@ def fukui_SCPC(FILE0,FILE1,FILE2,c):
 def lineal_operation(FILE1,FILE2,c1,c2,c3):
     
     print ("FILE1: ",FILE1)
-    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skipelines, maxrows = read_file_info(FILE1)
+    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     
     print ("FILE2: ",FILE2)
-    NATOMS2, GRID2, POINTS2, alattvec2, blattvec2, clattvec2, SKIPELINES2, MAXROWS2 = read_file_info(FILE2)
+    NATOMS2, GRID2, POINTS2, alattvec2, blattvec2, clattvec2, skiplines2, MAXROWS2 = read_file_info(FILE2)
     
     if POINTS != POINTS2:
         print("The files have different systems")
         return
      
-    CHG1 = process_file(FILE1, skipelines, maxrows, POINTS)
+    CHG1 = process_file(FILE1, skiplines, maxrows, POINTS)
     print('CHG1',CHG1)
 
-    CHG2 = process_file(FILE2, SKIPELINES2, MAXROWS2, POINTS2)
+    CHG2 = process_file(FILE2, skiplines2, MAXROWS2, POINTS2)
     print('CHG2',CHG2)
     
 
@@ -599,7 +646,7 @@ def lineal_operation(FILE1,FILE2,c1,c2,c3):
 def planar_average(FILE1, type_file, axis='z'):
     
     print ("FILE1: ",FILE1)
-    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skipelines, maxrows = read_file_info(FILE1)
+    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     NGX,NGY,NGZ = GRID
     print(alattvec,blattvec,clattvec)
     LATTCURB, VOL, omega= compute_lattice_parameters(alattvec, blattvec, clattvec)
@@ -607,7 +654,7 @@ def planar_average(FILE1, type_file, axis='z'):
     LY = blattvec[1]
     LX = alattvec[0]
 
-    df = read_data(FILE1, skipelines, maxrows, POINTS)
+    df = read_data(FILE1, skiplines, maxrows, POINTS)
     CHG = df.to_numpy().flatten('C')[0:POINTS]
     GHGtem =  reshape_xyz(NGX, NGY, NGZ, CHG)
 
@@ -665,7 +712,7 @@ def XYZ_value(FILE1,type_file, c1=1,c2=0,plot=False):
     output_file = f"XYZ_{type_file}.dat"
     
     print ("File to convert to xyz format: ",FILE1)
-    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skipelines, maxrows = read_file_info(FILE1)
+    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     NGX,NGY,NGZ = GRID
     
     LATTCURB, VOL, omega = compute_lattice_parameters(alattvec, blattvec, clattvec)
@@ -675,10 +722,10 @@ def XYZ_value(FILE1,type_file, c1=1,c2=0,plot=False):
     
     LZ = clattvec[2]
 
-    df = read_data(FILE1, skipelines, maxrows, POINTS)
+    df = read_data(FILE1, skiplines, maxrows, POINTS)
     CHG1 = df.to_numpy().flatten('C')[0:POINTS]     
 
-    #CHG1 = process_file(FILE1, skipelines, maxrows, POINTS)
+    #CHG1 = process_file(FILE1, skiplines, maxrows, POINTS)
     GHGtem = reshape_xyz(NGX,NGY,NGZ, CHG1)
 
     if type_file == 'CHGCAR':
@@ -709,26 +756,26 @@ def XYZ_value(FILE1,type_file, c1=1,c2=0,plot=False):
 def Perturbative_point(FILE1,FILE2,q,N):
     
     print ("FILE1: ",FILE1)
-    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skipelines, maxrows = read_file_info(FILE1)
+    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     NGX,NGY,NGZ = GRID
 
     print ("FILE2: ",FILE2)
-    NATOMS2, GRID2, POINTS2, alattvec2, blattvec2, clattvec2, SKIPELINES2, MAXROWS2 = read_file_info(FILE2)
+    NATOMS2, GRID2, POINTS2, alattvec2, blattvec2, clattvec2, skiplines2, MAXROWS2 = read_file_info(FILE2)
     
     if POINTS != POINTS2:
         print("The files have different grids")
         return
     
     
-    df = read_data(FILE1, skipelines, maxrows, POINTS)
+    df = read_data(FILE1, skiplines, maxrows, POINTS)
     CHG1 = df.to_numpy().flatten('C')[0:POINTS]  
-    #CHG1 = process_file(FILE1,skipelines,maxrows, POINTS)
+    #CHG1 = process_file(FILE1,skiplines,maxrows, POINTS)
     CHG1 = CHG1.astype(np.float64)
     print('CHG1',CHG1)
     
-    df = read_data(FILE2, skipelines, maxrows, POINTS)
+    df = read_data(FILE2, skiplines, maxrows, POINTS)
     CHG2 = df.to_numpy().flatten('C')[0:POINTS]  
-    #CHG2 = process_file(FILE2,SKIPELINES2, MAXROWS2, POINTS)
+    #CHG2 = process_file(FILE2,skiplines2, MAXROWS2, POINTS)
     CHG2 = CHG2.astype(np.float64)
     print('CHG2',CHG2)
 
@@ -761,8 +808,8 @@ def Perturbative_point(FILE1,FILE2,q,N):
     return final_file
 
 def min_max(FILE1, extrema_point ):
-    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skipelines, maxrows = read_file_info(FILE1)
-    POT = process_file(FILE1, skipelines, maxrows, POINTS)
+    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
+    POT = process_file(FILE1, skiplines, maxrows, POINTS)
     POT = np.array(POT).astype(float)
     POT = POT.reshape(GRID[2], GRID[1], GRID[0])
     coords, values = detect_local_extrema_3D(POT, order=2, extrema_type=extrema_point)
@@ -776,7 +823,7 @@ def visual_modelpot(file1, file2):
     archivo2 = XYZ_value(file2, 'LOCPOT')
 
     print('Reading: ', archivo1,'and', archivo2, 'to plot')
-    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skipelines, maxrows = read_file_info(file1)
+    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(file1)
     NGX,NGY,NGZ = GRID
     z_sup = np.linalg.norm(clattvec)*0.5
 
@@ -820,7 +867,7 @@ def visual_modelpot(file1, file2):
   
     
 ############################################################
-#                 Main Menu                                #
+#                        Main Menu                         #
 ############################################################
 
 def main_menu():
