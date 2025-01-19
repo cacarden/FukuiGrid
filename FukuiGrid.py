@@ -129,14 +129,6 @@ def func_correction(omega_vol, eps, LS, LZ, NGZ):
                 print("Error func_correction") ### aqui hubo una i
         return correction
 
-def vector_atoms_position(nombre_archivo, N_ATOMS):
-        fin = 8 + N_ATOMS
-        with open(nombre_archivo, 'r') as archivo:
-            lineas = archivo.readlines()
-            lineas_interesantes = lineas[8 : fin]
-            vectores = [list(map(float, linea.strip().split())) for linea in lineas_interesantes]
-            return vectores
-
 def compute_lattice_parameters(alattvec, blattvec, clattvec):
     LATTCURA = (1.0 / 0.529177210903) * np.dstack([alattvec, blattvec, clattvec])
     LATTCURA = LATTCURA[0]
@@ -307,18 +299,6 @@ def write_formatted_data_localm(filename, data):
     print(f"Data successfully written to {filename}")
 
 def calcular_xyz_val(coords, values, GRID, alattvec, blattvec, clattvec):
-    """
-    Función para calcular la colección de min_xyz_val para una serie de coordenadas y valores.
-
-    Args:
-    - coords (list or np.ndarray): Lista o array de coordenadas [NZ, NY, NX].
-    - values (list or np.ndarray): Lista o array de valores asociados a cada coordenada.
-    - GRID (list or np.ndarray): Tamaño de la cuadrícula [GRID_X, GRID_Y, GRID_Z].
-    - alattvec, blattvec, clattvec (list or np.ndarray): Vectores de red asociados.
-
-    Returns:
-    - min_xyz_vals (list): Lista de arrays que contienen [x_min, y_min, z_min, value] para cada coordenada.
-    """
     
     min_xyz_vals = []
 
@@ -477,6 +457,30 @@ def Fukui_interpolation(FILE1,FILE2,FILE3,FILE4, dn=None):
     return final_file
 
 def fukui_electrodes(FILE0,FILE1,Epsilon):
+    """
+    Applies corrections to the electrostatic potential to calculate the Fukui function for electrode systems.
+
+    Parameters:
+    -----------
+    FILE0 : str
+        Path to the charge density file of charge density of the neutral slab.
+    FILE1 : str
+        Path to the file of Fukui function.
+    Epsilon : float
+        Dielectric constant for the material under study.
+
+    Returns:
+    --------
+    final_file : str
+        Path to the output file containing the Fukui Potential in VASP format.
+
+    Description:
+    ------------
+    This function performs a series of operations to process charge density and electrostatic potential data from electrode systems. 
+    It applies corrections to account for periodic boundary conditions, computes planar averages, and adjusts the electrostatic 
+    potential for the system under study. The final corrected electrostatic potential is used to compute the Fukui
+    """
+
     
     NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     
@@ -536,6 +540,7 @@ def fukui_electrodes(FILE0,FILE1,Epsilon):
     PLANAR3 = [-x for x in PLANAR3]
 
     z_axis = np.linspace(0, LZ, NGZ)
+    
     plot_planar_average(z_axis, PLANAR1, PLANAR3)
 
     LOCPOTtem = convert_locpot(LOCPOT_cor2, NGX, NGY, NGZ)
@@ -545,14 +550,55 @@ def fukui_electrodes(FILE0,FILE1,Epsilon):
     return final_file
   
 def fukui_SCPC(FILE0,FILE1,FILE2,c):
-    
+    """
+    Computes the Fukui Potential using self-consistent potential corrections (SCPC) and outputs the corrected data.
+
+    Parameters:
+    -----------
+    FILE0 : str
+        Path to the reference charge density file (neutral slab).
+    FILE1 : str
+        Path to the input charge density file of Fukui function.
+    FILE2 : str
+        Path to the file containing correction values as a function of the z-axis (e.g., '#z-vcor.dat').
+    c : 1 or -1
+        Scaling factor for applying corrections based on the external potential. 
+        c = -1 for Electrophilic Fukui function v_f^-(r)
+        c = 1  for Nucleophilic Fukui function v_f^+(r).
+
+    Returns:
+    --------
+    final_file : str
+        Path to the output file ('FUKUI.LOCPOT') containing the corrected Fukui Potential 
+        in the format compatible with VASP.
+
+    Description:
+    ------------
+    This function calculates the Fukui function by processing charge density data and applying 
+    self-consistent corrections to the electrostatic potential. 
+
+    Notes:
+    ------
+    - The input files must have consistent grid sizes and formats.
+    - The correction values from `FILE2` are interpolated using cubic interpolation to match the grid of `FILE1`.
+    - The output file is written in a format suitable for further analysis in VASP.
+
+    Example:
+    --------
+    ```
+    final_file = fukui_SCPC('CHGCAR_neutral', 'CHGCAR_perturbed', 'z-vcor.dat', c=1)
+    print(f"Corrected file for for Nucleophilic Fukui function saved to {final_file}")
+    ```
+    """
+
+    # Reading charge density data from `FILE0` (neutral) and `FILE1` (Fukui)
     NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     
     NGX,NGY,NGZ = GRID
     
     print("This will take a few seconds.")
     print("")
-
+    # Computing the lattice parameters and the reciprocal grid.
     LATTCURB, VOL, omega= compute_lattice_parameters(alattvec, blattvec, clattvec)
     GSQU = compute_gsquared(GRID, LATTCURB, 0)
     
@@ -566,10 +612,10 @@ def fukui_SCPC(FILE0,FILE1,FILE2,c):
     CHG = CHGtem/omega
     CHG00 = CHGtem00/omega
 
+    #Applying Fourier transforms to compute the electrostatic potential (`LOCPOT`) and introducing corrections from the data in `FILE2`.
     PLANAR_CHG00 = compute_planar_average_nz(CHG00, NGX, NGY, NGZ, 'z')
     
     cota = 0.0001
-    
     valor_cercano, pos0 = closest_value_position(PLANAR_CHG00, cota)
     
     CHGG = np.fft.fftn(CHG, norm='ortho')    
@@ -582,9 +628,9 @@ def fukui_SCPC(FILE0,FILE1,FILE2,c):
 
     PLANAR1 = compute_planar_average_nz(LOCPOT, NGX, NGY, NGZ, 'z')
     
-    # value1 = np.array(PLANAR1)
-    
     z2, value2 = extract_data_from_file(FILE2, marker='#z-vcor.dat')
+
+    # Interpolating the corrections along the z-axis depend on type of Fukui (c)
     interp2 = interp1d(z2, value2, kind='cubic', fill_value="extrapolate")
     value2_interp = interp2(z_axis)
     
@@ -594,6 +640,7 @@ def fukui_SCPC(FILE0,FILE1,FILE2,c):
     for i in range(NGZ):
         LOCPOT_cor[:,:,i] = LOCPOT_cor[:,:,i] - value2_interp[i]*(c)
 
+    # Generating corrected potential data and writing the results to an output file.
     PLANAR2 = compute_planar_average_nz(LOCPOT_cor, NGX, NGY, NGZ, 'z')
     cota2 = PLANAR2[pos0]
     PLANAR2f_2 = [elemento - cota2 if 0 <= (elemento - cota2) else 0 for elemento in PLANAR2]
@@ -620,31 +667,105 @@ def fukui_SCPC(FILE0,FILE1,FILE2,c):
     return final_file
     
 def lineal_operation(FILE1,FILE2,c1,c2,c3):
-    
+    """
+    Performs a linear combination of LOCPOT or CHGCAR data from two input files.
+
+    Parameters:
+    -----------
+    FILE1 : str
+        Path to the first charge density file (e.g., CHGCAR or LOCPOT).
+    FILE2 : str
+        Path to the second charge density file (e.g., CHGCAR or LOCPOT).
+    c1 : float
+        Coefficient for scaling the charge density from `FILE1`.
+    c2 : float
+        Coefficient for scaling the charge density from `FILE2`.
+    c3 : float
+        Constant term to add to the linear combination.
+
+    Returns:
+    --------
+    final_file : str
+        Path to the output file ('CHGCARSUM') containing the resulting charge density
+        in VASP-compatible format.
+
+    Notes:
+    ------
+    - The input files must be formatted consistently and correspond to the same system.
+    - The output file is saved in a format compatible with further analysis using VASP.
+
+    Example:
+    --------
+    ```
+    final_file = lineal_operation('CHGCAR1', 'CHGCAR2', 1.5, -0.8, 0.2)
+    print(f"Linear combination saved to {final_file}")
+    ```
+    """
+
+    # Reading data (number of atoms, grid points, and lattice vectors) from `FILE1` and `FILE2`.
     print ("FILE1: ",FILE1)
     NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     
     print ("FILE2: ",FILE2)
     NATOMS2, GRID2, POINTS2, alattvec2, blattvec2, clattvec2, skiplines2, MAXROWS2 = read_file_info(FILE2)
     
+    # Ensuring that the two files correspond to the same system (i.e., have the same grid size and number of points).
     if POINTS != POINTS2:
         print("The files have different systems")
         return
-     
+
+    # Processing charge density data from both files.     
     CHG1 = process_file(FILE1, skiplines, maxrows, POINTS)
     print('CHG1',CHG1)
 
     CHG2 = process_file(FILE2, skiplines2, MAXROWS2, POINTS2)
     print('CHG2',CHG2)
     
-
+    # Applying the linear operation and writing the resulting charge density data to an output file (`CHGCARSUM`).
     CHGSUM = c1 * CHG1 + c2 * CHG2 + c3
     
     final_file = write_fukui_file(FILE1, NATOMS, CHGSUM, 'CHGCARSUM')
     return final_file
     
 def planar_average(FILE1, type_file, axis='z'):
-    
+    """
+    Computes the planar average of charge density or electrostatic potential along a specified axis.
+
+    Parameters:
+    -----------
+    FILE1 : str
+        Path to the charge density or electrostatic potential file (e.g., CHGCAR or LOCPOT format).
+    type_file : str
+        Type of input file ('CHGCAR' or 'LOCPOT') indicating whether the file contains charge density or potential data.
+    axis : str, optional, default 'z'
+        Axis along which the planar average is computed. Can be 'x', 'y', or 'z'.
+
+    Returns:
+    --------
+    data_to_save : numpy.ndarray
+        Array containing the planar average data, with the first column as the axis values and the second column as the averaged data.
+    TITLE_dat : str
+        Filename where the planar average data is saved.
+
+    Description:
+    ------------
+    This function reads a charge density or electrostatic potential file and computes the planar average along a given axis. 
+    The result is saved to a `.dat` file and a plot is generated. The function assumes that the input grid is orthogonal.
+
+    Notes:
+    ------
+    - This function only works for orthogonal lattice vectors (rectangular grids).
+    - The file should be formatted as either 'CHGCAR' (charge density) or 'LOCPOT' (electrostatic potential).
+    - The axis parameter determines the direction in which the planar average is computed.
+
+    Example:
+    --------
+    ```
+    data, filename = planar_average('CHGCAR', 'CHGCAR', axis='z')
+    print(f"Data saved in {filename}")
+    ```
+    """
+
     print ("FILE1: ",FILE1)
     NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     NGX,NGY,NGZ = GRID
@@ -664,16 +785,14 @@ def planar_average(FILE1, type_file, axis='z'):
         TITLE_plot = 'Planar Average Electron Density'
         TITLE_dat = 'PA_ED.dat'
         y_label = r'$\rho(r) \ (a_{0}^{-3})$'
-        name_fig = 'PA_ED.svg'
+        name_fig = 'PA_ED.png'
     
     if type_file == 'LOCPOT':
         CHG = GHGtem
         TITLE_plot = 'Planar Average Electrostatic Potential'
         TITLE_dat = 'PA_EP.dat'
         y_label= r'V(r) (eV)'
-        name_fig = 'PA_EP.svg'
-
- 
+        name_fig = 'PA_EP.png'
 
     if axis == 'z':
         xlabel = r'Z-direction ($\AA$)'
@@ -707,8 +826,49 @@ def planar_average(FILE1, type_file, axis='z'):
     plt.tight_layout()
     plt.show()
     plt.savefig(name_fig)
+    return data_to_save, TITLE_dat
 
-def XYZ_value(FILE1,type_file, c1=1,c2=0,plot=False):
+def XYZ_value(FILE1,type_file, c1=1,align_pot=False,plot=False):
+    """
+    Converts charge density or electrostatic potential data from VASP files to XYZ format, and optionally 
+    align potential to zero in the vacuum, change to the chemical convention (i.e. take the negative) 
+    and generates a plot for planar average of LOCPOT on z-axis.
+
+    Parameters:
+    -----------
+    FILE1 : str
+        Path to the input file (e.g., CHGCAR or LOCPOT format) containing charge density or electrostatic potential data.
+    type_file : str
+        Type of the input file ('CHGCAR' for charge density or 'LOCPOT' for electrostatic potential).
+    c1 : 1 or -1, default 1 (used only when `type_file` is 'LOCPOT').
+        1  Physic convertion
+        -1 Chemical convertion
+    align_pot : bool, optional, default False
+        If True, align potential to zero in the vacuum (used only when `type_file` is 'LOCPOT').
+    plot : bool, optional, default False
+        If True, generates a plot of the planar average of the electrostatic potential (only for 'LOCPOT' files).
+
+    Returns:
+    --------
+    final_file : str
+        The path to the output XYZ file containing the processed data.
+    
+
+    Notes:
+    ------
+    - For the plot, this function assumes that the input grid is orthogonal and that the data is in the correct format.
+    - The output XYZ file will have the name format "XYZ_{type_file}.dat" where `type_file` is 'CHGCAR' or 'LOCPOT'.
+
+    Example:
+    --------
+    ```
+    final_file1 = XYZ_value('path_to\LOCPOT', 'LOCPOT', c1=-1, align_pot=True, plot=True)
+    print(f"XYZ data saved for LOCPOT in {final_file1}")
+    final_file2 = XYZ_value('path_to\CHGCAR', 'CHGCAR')
+    print(f"XYZ data saved for CHGCAR in {final_file1}")
+    ```
+    """
+
     output_file = f"XYZ_{type_file}.dat"
     
     print ("File to convert to xyz format: ",FILE1)
@@ -736,7 +896,7 @@ def XYZ_value(FILE1,type_file, c1=1,c2=0,plot=False):
         AVEGPOTZcorr = compute_planar_average_nz(CHG, NGX, NGY, NGZ, 'z')
         first_value_AVEGPOTZcorr = AVEGPOTZcorr[0]
      
-        if c2 == 1:
+        if align_pot:
             CHG = CHG - first_value_AVEGPOTZcorr
 
         AVEGPOTZ = compute_planar_average_nz(CHG, NGX, NGY, NGZ, 'z')
@@ -754,7 +914,39 @@ def XYZ_value(FILE1,type_file, c1=1,c2=0,plot=False):
     return final_file
 
 def Perturbative_point(FILE1,FILE2,q,N):
-    
+    """
+    Computes a a perturbative expansion of the energy, which is given by ΔU(r) = qΦ(r) - qΔNvf⁺⁻(r)
+
+    Parameters:
+    -----------
+    FILE1 : str
+        Path to the LOCPOT file with Electrostatic potential
+    FILE2 : str
+        Path to the LOCPOT file with Fukui potential vf⁺⁻(r).
+    q : float
+        Charge of active site.
+    N : float
+        Change in the number of electrons ΔN
+
+    Returns:
+    --------
+    final_file : str
+        Path to the output file containing the computed perturbative model potential in VASP format.
+
+    Notes:
+    ------
+    - The charge density grids in the two input files must have the same dimensions.
+    - The output potential is written in VASP format as 'MODELPOT.LOCPOT'.
+    - The function assumes the grids are orthogonal, and the file format is consistent with standard VASP charge density files.
+
+    Example:
+    --------
+    ```
+    final_file = Perturbative_point('path_to/LOCPOT', 'path_to/LOCPOT_fukui', q=1.0, N=0.5)
+    print(f"Perturbative model potential saved in {final_file}")
+    ```
+    """
+
     print ("FILE1: ",FILE1)
     NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     NGX,NGY,NGZ = GRID
@@ -808,6 +1000,44 @@ def Perturbative_point(FILE1,FILE2,q,N):
     return final_file
 
 def min_max(FILE1, extrema_point ):
+    """
+    Identifies and extracts the local minima or maxima from a 3D potential field.
+
+    Parameters:
+    -----------
+    FILE1 : str
+        Path to the input file containing the potential data (e.g., CHGCAR or LOCPOT) in VASP format.
+    extrema_point : str
+        Specifies the type of extremum to find: 'min' for minima or 'max' for maxima.
+
+    Returns:
+    --------
+    name_file : str
+        Path to the output file where the coordinates and values of the identified extrema are saved.
+    m_points : list of tuples
+        List of the coordinates and corresponding values of the local minima or maxima.
+
+    Description:
+    ------------
+    This function processes the potential data from the input file (`FILE1`) and identifies the local minima or maxima
+    in the 3D potential field. The extrema are detected using a second-order finite difference method (order=2). 
+    The function then calculates the corresponding coordinates in real space using the lattice vectors and saves the 
+    results to a text file with the name `extrema_point.txt` (where `extrema_point` is either 'min' or 'max').
+
+    Notes:
+    ------
+    - The input file (`FILE1`) must contain a 3D potential field in a format compatible with VASP charge density files.
+    - The lattice vectors are used to convert the 3D grid indices to real-space coordinates.
+    - The output file contains the coordinates and values of the identified extrema.
+    
+    Example:
+    --------
+    ```
+    name_file, extrema_points = min_max('path_to/LOCPOT', extrema_point='min')
+    print(f"Local minima saved in {name_file}")
+    ```
+    """
+
     NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(FILE1)
     POT = process_file(FILE1, skiplines, maxrows, POINTS)
     POT = np.array(POT).astype(float)
@@ -816,8 +1046,45 @@ def min_max(FILE1, extrema_point ):
     m_points = calcular_xyz_val(coords, values, GRID, alattvec, blattvec, clattvec)
     name_file = f"{extrema_point}.txt"
     write_formatted_data_localm(name_file, m_points)
+    return name_file,m_points
 
 def visual_modelpot(file1, file2):
+    """
+    Plot heatmap with respect to the X and Y distance, and a color bar is added to indicate the energy 
+      difference (`ΔU_int`).
+    Parameters:
+    -----------
+    file1 : str
+        Path to the input file containing the charge density data of neutral slab (e.g., CHGCAR) in VASP format.
+    file2 : str
+        Path to the input file containing the energy obtained by perturbative expansion (e.g., MODELPOT) in VASP format.
+
+    Returns:
+    --------
+    filtrados : list of tuples
+        A list of filtered data points, where each tuple contains (x, y, z, value) for the data that satisfies the filter conditions.
+        The function generates a heatmap and saves it as "heatmap_MODELPOT.png" and the data as "filtered_data.txt". 
+        The plot is displayed using matplotlib.
+    Description:
+    ------------
+    This function filters data to exclude values that are not close to a density of 1e-3 and do not lie within the upper half of the slab 
+    (refer to the filter_values() function for more details). It then creates a heatmap based on a 2D histogram of the filtered data, 
+    where the X and Y axes represent spatial coordinates and the color intensity corresponds to energy differences. The heatmap is displayed 
+    and saved as an image file ("heatmap_MODELPOT.png"), and the filtered data points are written to "filtered_data.txt".
+
+    Notes:
+    ------
+    - The function assumes that both input files (`file1` and `file2`) are in the correct VASP format for charge density 
+      (CHGCAR) and electrostatic potential (LOCPOT) files.
+
+    Example:
+    --------
+    ```
+    visual_modelpot('CHGCAR_file', 'MODELPOT')
+    ```
+    This will create a heatmap of the electrostatic potential difference between the two files.
+    """
+
     # Files to compare
     archivo1 = XYZ_value(file1, 'CHGCAR')
     archivo2 = XYZ_value(file2, 'LOCPOT')
@@ -833,6 +1100,8 @@ def visual_modelpot(file1, file2):
     compare_columns(datos1, datos2)
 
     filtrados = filter_values(datos1, datos2, z_sup)
+
+    np.savetxt('heatmap_data.txt', filtrados, fmt='%f', header="X Y Z Delta_U_int", comments='')
 
     # Values for heatmap
     x_vals = [item[0] for item in filtrados]
@@ -864,6 +1133,7 @@ def visual_modelpot(file1, file2):
 
     plt.savefig("heatmap_MODELPOT.png")
     plt.show()
+    return filtrados
   
     
 ############################################################
@@ -1123,10 +1393,10 @@ def main_menu():
                                 print("Do you want to generate a plan average plot?")
                                 option462p = input("yes or no: ")
                                 if option462p == "yes" or option462p == "YES" or option462p == "y":
-                                    XYZ_value(FILE1, 'LOCPOT', -1,1,plot=True)
+                                    XYZ_value(FILE1, 'LOCPOT', -1,align_pot=True,plot=True)
                                     continue
                                 elif option462p == "no" or option462p == "NO" or option462p == "n":
-                                    XYZ_value(FILE1, 'LOCPOT', -1,1)
+                                    XYZ_value(FILE1, 'LOCPOT', -1,align_pot=True)
                                     continue
 
                             elif option462y == "no" or option462y == "NO" or option462y == "n":
@@ -1134,10 +1404,10 @@ def main_menu():
                                 print("Do you want to generate a plan average plot?")
                                 option462p = input("yes or no: ")
                                 if option462p == "yes" or option462p == "YES" or option462p == "y":
-                                    XYZ_value(FILE1, 'LOCPOT', 1,1,plot=True)
+                                    XYZ_value(FILE1, 'LOCPOT', 1,align_pot=True,plot=True)
                                     continue
                                 elif option462p == "no" or option462p == "NO" or option462p == "n":
-                                    XYZ_value(FILE1, 'LOCPOT', 1,1)
+                                    XYZ_value(FILE1, 'LOCPOT', 1,align_pot=True)
                                     continue
 
                         if option462 == "no" or option462 == "NO" or option462 == "n":
@@ -1149,10 +1419,10 @@ def main_menu():
                                 print("Do you want to generate a plan average plot?")
                                 option462p = input("yes or no: ")
                                 if option462p == "yes" or option462p == "YES" or option462p == "y":
-                                    XYZ_value(FILE1, 'LOCPOT', -1,2,plot=True)
+                                    XYZ_value(FILE1, 'LOCPOT', -1,align_pot=False,plot=True)
                                     continue
                                 elif option462p == "no" or option462p == "NO" or option462p == "n":
-                                    XYZ_value(FILE1, 'LOCPOT', -1,2)
+                                    XYZ_value(FILE1, 'LOCPOT', -1,align_pot=False)
                                     continue
                             
                             elif option462n == "no" or option462n == "NO" or option462n == "n":
@@ -1160,10 +1430,10 @@ def main_menu():
                                  print("Do you want to generate a plan average plot?")
                                  option462p = input("yes or no: ")
                                  if option462p == "yes" or option462p == "YES" or option462p == "y":
-                                    XYZ_value(FILE1, 'LOCPOT', 1,2,plot=True)
+                                    XYZ_value(FILE1, 'LOCPOT', 1,align_pot=False,plot=True)
                                     continue
                                  elif option462p == "no" or option462p == "NO" or option462p == "n":
-                                    XYZ_value(FILE1, 'LOCPOT', 1,2)
+                                    XYZ_value(FILE1, 'LOCPOT', 1,align_pot=False)
                                     continue
                 
                 if option4 == "47":
