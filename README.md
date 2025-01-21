@@ -2,7 +2,7 @@
 
 Interactive Python Code to calculate Fukui functions, calculate and correct the Fukui potential and estimate interaction energies, for periodic systems.
 
-Developed by Javiera Cabezas-Escares, Nicolás F. Barrera, Francisco Munoz and Carlos Cárdenas.
+Developed by Javiera Cabezas-Escares, Nicolás F. Barrera, and Carlos Cárdenas.
 
 If you use FukuiGrid, please cite:
 1. .
