@@ -292,10 +292,10 @@ def detect_local_extrema_3D(data, order, extrema_type='min'):
 
     return coords, values
 
-def write_formatted_data_localm(filename, data):
+def write_formatted_data_localm(filename, data,alattvec,blattvec,clattvec):
     with open(filename, 'w') as archivo:
         for fila in data:
-            archivo.write(f"{fila[0]:>10.7f} {fila[1]:>10.7f} {fila[2]:>10.7f} {fila[3]:>10.7f}\n")
+            archivo.write(f"{(fila[0]/alattvec[0]):>10.7f} {(fila[1]/blattvec[1]):>10.7f} {(fila[2]/clattvec[2]):>10.7f} {fila[3]:>10.7f}\n")
     print(f"Data successfully written to {filename}")
 
 def calcular_xyz_val(coords, values, GRID, alattvec, blattvec, clattvec):
@@ -353,8 +353,7 @@ def compare_columns(col1, col2, tolerancia=1e-8):
 def filter_values(datos1, datos2, ztol):
     """Filtering data with density close to 1e-3."""
     # Filter value
-    #filtro = (0.0009 <= datos1[:, 3]) & (datos1[:, 3] <= 0.0011) & (datos1[:, 2] >= ztol)
-    filtro = (0.0001 <= datos1[:, 3]) & (datos1[:, 3] <= 0.0003) & (datos1[:, 2] >= ztol)
+    filtro = (0.0008 <= datos1[:, 3]) & (datos1[:, 3] <= 0.0012) & (datos1[:, 2] >= ztol)
     datos_filtrados = datos1[filtro]
 
     # choosing data closer to 1e-3
@@ -372,6 +371,33 @@ def filter_values(datos1, datos2, ztol):
 
     print(f"Number of data filtered in MODELPOT file: {len(resultado)}")
     return resultado
+
+def write_poscar_file(FILE1, NATOMS, m_points, filename,alattvec,blattvec,clattvec):
+    with open(filename, "w") as FUKUIFILE:
+        
+        # header FILE1
+        with open(FILE1) as fp:
+            for i, line in enumerate(fp):
+                if i == 5: 
+                    FUKUIFILE.write(line.rstrip() + "\t X\n")  
+                elif i == 6: 
+                    FUKUIFILE.write(line.rstrip() + f"\t {len(m_points)}\n")  
+                elif i < NATOMS + 8:
+                    FUKUIFILE.write(line)
+                else:
+                    break
+
+        # position on direct 
+        for arr in m_points:
+            xyz_val = arr[:3]
+            direct_x = xyz_val[0]/alattvec[0]
+            direct_y = xyz_val[1]/blattvec[1]
+            direct_z = xyz_val[2]/clattvec[2]
+        
+            FUKUIFILE.write(f"{direct_x:.7f}  {direct_y:.7f}  {direct_z:.7f}\n")
+        
+    print('file saved: ',filename)
+    return filename
 
 ############################################################
 #                     Main Functions                       #
@@ -546,7 +572,7 @@ def fukui_electrodes(FILE0,FILE1,Epsilon):
     # Write the file
     LOCPOTtem = convert_locpot(LOCPOT_cor2, NGX, NGY, NGZ)
 
-    final_file = write_fukui_file(FILE1, NATOMS, LOCPOTtem, 'FUKUI.LOCPOT')
+    final_file = write_fukui_file(FILE1, NATOMS, LOCPOTtem, 'LOCPOT_FUKUI.vasp')
 
     return final_file
   
@@ -664,7 +690,7 @@ def fukui_SCPC(FILE0,FILE1,FILE2,c):
 
     LOCPOTtem = convert_locpot(LOCPOT_cor2, NGX, NGY, NGZ)
 
-    final_file = write_fukui_file(FILE1, NATOMS, LOCPOTtem, 'FUKUI.LOCPOT')
+    final_file = write_fukui_file(FILE1, NATOMS, LOCPOTtem, 'LOCPOT_FUKUI.vasp')
     return final_file
     
 def lineal_operation(FILE1,FILE2,c1,c2,c3):
@@ -725,7 +751,7 @@ def lineal_operation(FILE1,FILE2,c1,c2,c3):
     # Applying the linear operation and writing the resulting charge density data to an output file (`CHGCARSUM`).
     CHGSUM = c1 * CHG1 + c2 * CHG2 + c3
     
-    final_file = write_fukui_file(FILE1, NATOMS, CHGSUM, 'CHGCARSUM')
+    final_file = write_fukui_file(FILE1, NATOMS, CHGSUM, 'CHGCARSUM.vasp')
     return final_file
     
 def planar_average(FILE1, type_file, axis='z'):
@@ -765,6 +791,7 @@ def planar_average(FILE1, type_file, axis='z'):
     data, filename = planar_average('CHGCAR', 'CHGCAR', axis='z')
     print(f"Data saved in {filename}")
     ```
+    
     """
 
     print ("FILE1: ",FILE1)
@@ -868,6 +895,7 @@ def XYZ_value(FILE1,type_file, c1=1,align_pot=False,plot=False):
     final_file2 = XYZ_value('path_to\CHGCAR', 'CHGCAR')
     print(f"XYZ data saved for CHGCAR in {final_file1}")
     ```
+
     """
 
     output_file = f"XYZ_{type_file}.dat"
@@ -997,12 +1025,12 @@ def Perturbative_point(FILE1,FILE2,q,N):
                 LOCPOTtem[N1*NGX*NGY + N2*NGX + N3] = CHG[N3,N2,N1]
 
 
-    final_file = write_fukui_file(FILE2, NATOMS, LOCPOTtem, 'MODELPOT.LOCPOT') 
+    final_file = write_fukui_file(FILE2, NATOMS, LOCPOTtem, 'MODELPOT_LOCPOT.vasp') 
     return final_file
 
-def min_max(FILE1, extrema_point ):
+def min_max(FILE1, extrema_point, POSCAR_format=False ):
     """
-    Identifies and extracts the local minima or maxima from a 3D potential field.
+    Identifies and extracts the local minima or maxima from a 3D potential field, with optional export to POSCAR format.
 
     Parameters:
     -----------
@@ -1010,32 +1038,43 @@ def min_max(FILE1, extrema_point ):
         Path to the input file containing the potential data (e.g., CHGCAR or LOCPOT) in VASP format.
     extrema_point : str
         Specifies the type of extremum to find: 'min' for minima or 'max' for maxima.
+    POSCAR_format : bool, optional
+        If True, exports the filtered extrema points into a POSCAR-style file for further visualization or calculations.
+        Default is False.
 
     Returns:
     --------
     name_file : str
-        Path to the output file where the coordinates and values of the identified extrema are saved.
+        Path to the output file where the coordinates and values of the identified extrema are saved (e.g., "min.txt" or "max.txt").
     m_points : list of tuples
         List of the coordinates and corresponding values of the local minima or maxima.
 
     Description:
     ------------
     This function processes the potential data from the input file (`FILE1`) and identifies the local minima or maxima
-    in the 3D potential field. The extrema are detected using a second-order finite difference method (order=2). 
-    The function then calculates the corresponding coordinates in real space using the lattice vectors and saves the 
-    results to a text file with the name `extrema_point.txt` (where `extrema_point` is either 'min' or 'max').
+    in the 3D potential field using a second-order finite difference method (`order=2`). 
+    It converts the extrema positions from grid indices to fractional coordinates using the lattice vectors and saves the 
+    results to a text file named `min.txt` or `max.txt` depending on the selected extrema type.
+
+    If `POSCAR_format=True`, the function also creates a POSCAR-style file (e.g., "min_POSCAR.vasp" or "max_POSCAR.vasp"),
+    filtering extrema points with absolute values greater than `1e-2` to avoid exporting irrelevant small values.
 
     Notes:
     ------
     - The input file (`FILE1`) must contain a 3D potential field in a format compatible with VASP charge density files.
-    - The lattice vectors are used to convert the 3D grid indices to real-space coordinates.
-    - The output file contains the coordinates and values of the identified extrema.
-    
+    - The output text file contains the coordinates and values of the identified extrema.
+    - The optional POSCAR export ensures the file includes only significant extrema points (`|value| > 1e-2`).
+
     Example:
     --------
     ```
+    # Basic usage: find local minima and export the results
     name_file, extrema_points = min_max('path_to/LOCPOT', extrema_point='min')
     print(f"Local minima saved in {name_file}")
+
+    # Export local maxima in POSCAR format for visualization
+    name_file, extrema_points = min_max('path_to/LOCPOT', extrema_point='max', POSCAR_format=True)
+    print(f"Local maxima saved in {name_file} and max_POSCAR.vasp")
     ```
     """
 
@@ -1046,61 +1085,84 @@ def min_max(FILE1, extrema_point ):
     coords, values = detect_local_extrema_3D(POT, order=2, extrema_type=extrema_point)
     m_points = calcular_xyz_val(coords, values, GRID, alattvec, blattvec, clattvec)
     name_file = f"{extrema_point}.txt"
-    write_formatted_data_localm(name_file, m_points)
+    write_formatted_data_localm(name_file, m_points,alattvec, blattvec, clattvec)
+    if POSCAR_format:
+        datos_filtrados = [arr for arr in m_points if abs(arr[3]) > 1e-2]
+        write_poscar_file(FILE1,NATOMS,datos_filtrados,f"{extrema_point}_POSCAR.vasp",alattvec,blattvec,clattvec)
     return name_file,m_points
 
-def visual_modelpot(file1, file2):
+def visual_modelpot(file1, file2, z=None, dz=None):
+
     """
     Plot heatmap with respect to the X and Y distance, and a color bar is added to indicate the energy 
-      difference (`ΔU_int`).
+    difference (`ΔU_int`). The heatmap can be generated either for a selected z-plane or an isosurface.
+
     Parameters:
     -----------
     file1 : str
-        Path to the input file containing the charge density data of neutral slab (e.g., CHGCAR) in VASP format.
+        Path to the input file containing the charge density data of the neutral slab (e.g., CHGCAR) in VASP format.
     file2 : str
-        Path to the input file containing the energy obtained by perturbative expansion (e.g., MODELPOT) in VASP format.
+        Path to the input file containing the energy obtained by perturbative expansion (e.g., MODELPOT or LOCPOT) in VASP format.
+    z : float, optional
+        The specific z-plane value to generate a 2D heatmap at that height. If not provided, the heatmap is based on an isosurface.
+    dz : float, optional
+        Thickness around the given z value (z ± dz) to include more data points when generating the heatmap for a specific plane. 
+        Only used when `z` is provided.
 
     Returns:
     --------
     filtrados : list of tuples
         A list of filtered data points, where each tuple contains (x, y, z, value) for the data that satisfies the filter conditions.
-        The function generates a heatmap and saves it as "heatmap_MODELPOT.png" and the data as "filtered_data.txt". 
+        The function generates a heatmap and saves it as "heatmap_MODELPOT.png" and the data as "heatmap_data.txt". 
         The plot is displayed using matplotlib.
+
     Description:
     ------------
-    This function filters data to exclude values that are not close to a density of 1e-3 and do not lie within the upper half of the slab 
-    (refer to the filter_values() function for more details). It then creates a heatmap based on a 2D histogram of the filtered data, 
-    where the X and Y axes represent spatial coordinates and the color intensity corresponds to energy differences. The heatmap is displayed 
-    and saved as an image file ("heatmap_MODELPOT.png"), and the filtered data points are written to "filtered_data.txt".
+    This function can operate in two modes:
+    1. **Plane mode (z provided)**: Generates a heatmap at a specific z value ± dz, showing the energy differences (`ΔU_int`) 
+       at that plane.
+    2. **Isosurface mode (default)**: If no z value is provided, the function filters data to exclude values that are not close 
+       to a charge density of 1e-3 and are not within the upper half of the slab (refer to the filter_values() function). It then creates 
+       a heatmap based on a 2D histogram of the filtered data, where the X and Y axes represent spatial coordinates, and color intensity 
+       corresponds to energy differences.
 
     Notes:
     ------
     - The function assumes that both input files (`file1` and `file2`) are in the correct VASP format for charge density 
-      (CHGCAR) and electrostatic potential (LOCPOT) files.
+      (CHGCAR) and electrostatic potential (LOCPOT or MODELPOT) files.
+    - If `z` is provided, `dz` controls the thickness of the plane selection to allow a small slice around the chosen z value.
 
     Example:
     --------
     ```
+    # For an isosurface heatmap
     visual_modelpot('CHGCAR_file', 'MODELPOT')
+
+    # For a heatmap at z = 5.0 Å with a thickness of ±0.1 Å
+    visual_modelpot('CHGCAR_file', 'MODELPOT', z=5.0, dz=0.1)
     ```
-    This will create a heatmap of the electrostatic potential difference between the two files.
     """
 
-    # Files to compare
-    archivo1 = XYZ_value(file1, 'CHGCAR')
+
     archivo2 = XYZ_value(file2, 'LOCPOT')
 
-    print('Reading: ', archivo1,'and', archivo2, 'to plot')
-    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(file1)
+    NATOMS, GRID, POINTS, alattvec, blattvec, clattvec, skiplines, maxrows = read_file_info(file2)
     NGX,NGY,NGZ = GRID
-    z_sup = np.linalg.norm(clattvec)*0.5
-
-    datos1 = read_xyzval(archivo1)
+    
     datos2 = read_xyzval(archivo2)
 
-    compare_columns(datos1, datos2)
+    if z is not None:
+        #usar ese valor de z=- deltaz como isovalue para buscar
+        filtrados = datos2[(datos2[:, 2] >= (z - dz)) & (datos2[:, 2] <= (z + dz))]
+        title_plot=fr"$\Delta U_{{int}}$ at  z = {z:.2f}, $\Delta z$ = {dz:.2f}"
 
-    filtrados = filter_values(datos1, datos2, z_sup)
+    else:
+        z_sup = np.linalg.norm(clattvec)*0.5
+        archivo1 = XYZ_value(file1, 'CHGCAR')
+        datos1 = read_xyzval(archivo1)
+        compare_columns(datos1, datos2)
+        filtrados = filter_values(datos1, datos2, z_sup)
+        title_plot=r"$\Delta U_{int}$ at  $\rho =10^{-3}$ $a_{0}^{-3}$"
 
     np.savetxt('heatmap_data.txt', filtrados, fmt='%f', header="X Y Z Delta_U_int", comments='')
 
@@ -1125,7 +1187,7 @@ def visual_modelpot(file1, file2):
     cbar.ax.tick_params(labelsize=12) 
 
 
-    plt.title(r"$\Delta U_{int}$ at  $\rho =10^{-4}$ $a_{0}^{-3}$", size=16, family='sans-serif')
+    plt.title(title_plot, size=16, family='sans-serif')
     plt.xlabel(r"X (Å)",size=14, family='sans-serif')
     plt.ylabel(r"Y (Å)", size=14,family='sans-serif')
 
@@ -1440,12 +1502,27 @@ def main_menu():
                 if option4 == "47":
                     print("Name CHGCAR or LOCPOT files to found maxima: ")
                     FILE = input("Enter name of file: ")
-                    min_max(FILE, 'max')
+                    print("Do you want to generate the file in POSCAR format?")
+                    option4p = input("yes or no: ")
+                    if option4p == "yes" or option4p == "YES" or option4p == "y":
+                        min_max(FILE, 'max', POSCAR_format=True)
+                        continue
+                    elif option4p == "no" or option4p == "NO" or option4p == "n":
+                        min_max(FILE, 'max')
+                        continue
+                    
                 
                 if option4 == "48":
                     print("Name CHGCAR or LOCPOT files to foun minima: ")
                     FILE = input("Enter name of file: ")
-                    min_max(FILE, 'min')
+                    print("Do you want to generate the file in POSCAR format?")
+                    option4p = input("yes or no: ")
+                    if option4p == "yes" or option4p == "YES" or option4p == "y":
+                        min_max(FILE, 'min', POSCAR_format=True)
+                        continue
+                    elif option4p == "no" or option4p == "NO" or option4p == "n":
+                        min_max(FILE, 'min')
+                        continue
 
             elif option == "5":
 
@@ -1473,6 +1550,17 @@ def main_menu():
                     visual_modelpot(FILE_CHGCAR,modelpot)
                     continue
                 elif option51 == "no" or option51 == "NO" or option51 == "n":
+                    Perturbative_point(FILE0,FILE1,q,N)
+                print("Do you want a heat map of x plane value? ")
+                option52 = input("yes or no: ")
+                if option52 == "yes" or option52 == "YES" or option52 == "y":
+                    z = input("Enter the specific z-plane value to generate a 2D heatmap at that height: ")
+                    #print("Name CHGCAR file of charge density of the neutral slab.")
+                    #FILE_CHGCAR = input("Enter file name: ")
+                    modelpot = Perturbative_point(FILE0,FILE1,q,N)
+                    visual_modelpot('',modelpot,z,dz=0.1)
+                    continue
+                elif option52 == "no" or option52 == "NO" or option52 == "n":
                     Perturbative_point(FILE0,FILE1,q,N)
 
                 continue
