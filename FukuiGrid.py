@@ -661,7 +661,7 @@ def fukui_SCPC(FILE0,FILE1,FILE2,c):
     interp2 = interp1d(z2, value2, kind='cubic', fill_value="extrapolate")
     value2_interp = interp2(z_axis)
     
-    print('value2_interp=',value2_interp)
+    #print('value2_interp=',value2_interp)
 
     LOCPOT_cor = LOCPOT.copy()
     for i in range(NGZ):
