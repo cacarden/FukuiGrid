@@ -1551,12 +1551,11 @@ def main_menu():
                     continue
                 elif option51 == "no" or option51 == "NO" or option51 == "n":
                     Perturbative_point(FILE0,FILE1,q,N)
-                print("Do you want a heat map of x plane value? ")
+                print("Do you want a heat map of z plane value? ")
                 option52 = input("yes or no: ")
                 if option52 == "yes" or option52 == "YES" or option52 == "y":
                     z = input("Enter the specific z-plane value to generate a 2D heatmap at that height: ")
-                    #print("Name CHGCAR file of charge density of the neutral slab.")
-                    #FILE_CHGCAR = input("Enter file name: ")
+                    z = float(z)
                     modelpot = Perturbative_point(FILE0,FILE1,q,N)
                     visual_modelpot('',modelpot,z,dz=0.1)
                     continue
