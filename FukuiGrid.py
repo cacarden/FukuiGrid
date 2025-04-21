@@ -1333,8 +1333,8 @@ def main_menu():
                 print("44 -- Add a constant: Adds a constant to a CHGCAR or LOCPOT file. ")
                 print("45 -- Planar Average: Compute the planar average of CHGCAR or LOCPOT in the X, Y, or Z direction.")
                 print("46 -- Value-xyz:      Convert a CHGCAR or LOCPOT into a simple list: X, Y, Z, Value format.")
-                print("47 -- Max:            Find Local Maxima for a LOCPOT file")
-                print("48 -- Min:            Find Local Minima for a LOCPOT file")
+                print("47 -- Max:            Find Local Maxima for a CHGCAR or LOCPOT file.")
+                print("48 -- Min:            Find Local Minima for a CHGCAR or LOCPOT file.")
                 print("")
                 print("")
 
