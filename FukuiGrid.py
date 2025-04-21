@@ -835,7 +835,7 @@ def planar_average(FILE1, type_file, axis='z'):
     print('Preparing ',axis, ' axis data')
     print(NGX,NGY,NGZ)
     print(n_axis)
-    print(np.linspace(0, LX, NGX))
+    #print(np.linspace(0, LX, NGX))
 
     AVEGPOTZcorr = compute_planar_average_nz(CHG, NGX, NGY, NGZ, axis)
     data_to_save = np.column_stack((n_axis, AVEGPOTZcorr))
