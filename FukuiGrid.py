@@ -1260,7 +1260,7 @@ def main_menu():
                     continue
     
                 if option1 == "12":
-                    print("Name CHGCAR files with \u03B4N: 0.0, +0.05, +0.010, and +0.15")
+                    print("Name CHGCAR files with \u03B4N: 0.0, +0.05, +0.10, and +0.15")
                     FILE1 = input("Enter name of file 1: ")
                     FILE2 = input("Enter name of file 2: ")
                     FILE3 = input("Enter name of file 3: ")
