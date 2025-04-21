@@ -1351,8 +1351,8 @@ def main_menu():
                     lineal_operation(FILE1,FILE2,c1,c2,0)
                    
                     # Change the file name
-                    old_filename = "CHGCARSUM"
-                    new_filename = "CHGCAR_SUM"
+                    old_filename = "CHGCARSUM.vasp"
+                    new_filename = "CHGCAR_SUM.vasp"
                     os.rename(old_filename, new_filename)
 
                     continue
@@ -1366,8 +1366,8 @@ def main_menu():
                     lineal_operation(FILE1,FILE2,1,-1,0)
                     
                     # Change the file name
-                    old_filename = "CHGCARSUM"
-                    new_filename = "CHGCAR_DIFF"
+                    old_filename = "CHGCARSUM.vasp"
+                    new_filename = "CHGCAR_DIFF.vasp"
                     os.rename(old_filename, new_filename)
 
                     continue
@@ -1383,8 +1383,8 @@ def main_menu():
                     lineal_operation(FILE1,FILE2,c1,0,0)
 
                     # Change the file name
-                    old_filename = "CHGCARSUM"
-                    new_filename = "CHGCAR_SCALE"
+                    old_filename = "CHGCARSUM.vasp"
+                    new_filename = "CHGCAR_SCALE.vasp"
                     os.rename(old_filename, new_filename)
                     
                     continue
@@ -1400,8 +1400,8 @@ def main_menu():
                     lineal_operation(FILE1,FILE2,1,0,c3)
 
                     # Change the file name
-                    old_filename = "CHGCARSUM"
-                    new_filename = "CHGCAR_constant"
+                    old_filename = "CHGCARSUM.vasp"
+                    new_filename = "CHGCAR_constant.vasp"
                     os.rename(old_filename, new_filename)
 
                     continue
