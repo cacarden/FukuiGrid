@@ -8,7 +8,7 @@ If you use FukuiGrid, please cite:
 1. Barrera, N. F., Cabezas-Escares, J. E., Munoz, F., Muriel, W. A., Gomez, T., Calatayud, M., & Cardenas, C. (2025). Fukui Function and Fukui Potential for Solid-State Chemistry: Application to Surface Reactivity, [Journal of Chemical Theory and Computation.](https://pubs.acs.org/doi/10.1021/acs.jctc.5c00086?fig=fig10&ref=pdf#) 
 2. .
 
-We welcome questions, comments, and feedback to improve FukuiGrid. Please direct them to <a href="mailto:cacarden@gmail.com" style="color:blue;">cacarden@gmail.com</a>.
+We welcome questions, comments, and feedback to improve FukuiGrid. Please direct them to <a href="mailto:cardena@uchile.cl" style="color:blue;">cardena@uchile.cl</a>.
 
 ## Dependencies
 
