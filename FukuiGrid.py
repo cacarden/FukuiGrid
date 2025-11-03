@@ -7,6 +7,7 @@ import sys
 import math
 import os
 from scipy.interpolate import interp1d
+import ast
 
 ############################################################
 #                   Utility Functions                      #
@@ -1248,29 +1249,68 @@ def main_menu():
 
                 option1 = input("Choose an option: ")
                 if option1 == "11":
-                    print("Name CHGCAR files with \u03B4N: -0.15, -0.10, -0.05, and 0.0")
-                    FILE1 = input("Enter name of file 1: ")
-                    FILE2 = input("Enter name of file 2: ")
-                    FILE3 = input("Enter name of file 3: ")
-                    FILE4 = input("Enter name of file 4: ")
-                    print("\nThis will take a few seconds.\n")
+                    print("Do you want to use the default array of electron fractions corresponding to the charge density files? \u03B4N = [-0.15, -0.10, -0.05, 0.0]")
+                    print("111 Yes, I would like to use the default array")
+                    print("112 No, I prefer to define my own values")
+                    option11 = input("Choose an option: ")
+                    if option11 == "111":
+                        print("Name CHGCAR files with \u03B4N: -0.15, -0.10, -0.05, and 0.0")
+                        FILE1 = input("Enter name of file 1: ")
+                        FILE2 = input("Enter name of file 2: ")
+                        FILE3 = input("Enter name of file 3: ")
+                        FILE4 = input("Enter name of file 4: ")
+                        print("\nThis will take a few seconds.\n")
 
-                    Fukui_interpolation(FILE1, FILE2, FILE3, FILE4, [-0.15, -0.10, -0.05, 0.0])
+                        Fukui_interpolation(FILE1, FILE2, FILE3, FILE4, [-0.15, -0.10, -0.05, 0.0])
 
-                    continue
+                        continue
+                    if option11 == "112":
+                        particular_dn = input("Write your new electron fractions corresponding to the charge density files in array format \u03B4N = [d1, d2, d3, d4]: ")
+                        dn_float = np.array(ast.literal_eval(particular_dn), dtype=float)  # ← convierte a floats
+                        print("δN =", dn_float)
+                        print("Name the CHGCAR files with", particular_dn, "following the same order.")
+                        FILE1 = input("Enter name of file 1: ")
+                        FILE2 = input("Enter name of file 2: ")
+                        FILE3 = input("Enter name of file 3: ")
+                        FILE4 = input("Enter name of file 4: ")
+                        print("\nThis will take a few seconds.\n")
+
+                        Fukui_interpolation(FILE1, FILE2, FILE3, FILE4, dn_float)
+
+                        continue
     
                 if option1 == "12":
-                    print("Name CHGCAR files with \u03B4N: 0.0, +0.05, +0.10, and +0.15")
-                    FILE1 = input("Enter name of file 1: ")
-                    FILE2 = input("Enter name of file 2: ")
-                    FILE3 = input("Enter name of file 3: ")
-                    FILE4 = input("Enter name of file 4: ")
+                    print("Do you want to use the default array of electron fractions corresponding to the charge density files? \u03B4N= [0.0, +0.05, +0.10, +0.15]")
+                    print("121 Yes, I would like to use the default array")
+                    print("122 No, I prefer to define my own values")
+                    option12 = input("Choose an option: ")
+                    if option12 == "121":
+                        print("Name CHGCAR files with \u03B4N: 0.0, +0.05, +0.10, and +0.15")
+                        FILE1 = input("Enter name of file 1: ")
+                        FILE2 = input("Enter name of file 2: ")
+                        FILE3 = input("Enter name of file 3: ")
+                        FILE4 = input("Enter name of file 4: ")
 
-                    print("\nThis will take a few seconds.\n")
+                        print("\nThis will take a few seconds.\n")
 
-                    Fukui_interpolation(FILE1, FILE2, FILE3, FILE4, [0.0, 0.05, 0.10, 0.15])
+                        Fukui_interpolation(FILE1, FILE2, FILE3, FILE4, [0.0, 0.05, 0.10, 0.15])
                     
-                    continue
+                        continue
+
+                    if option12 == "122":
+                        particular_dn = input("Write your new electron fractions corresponding to the charge density files in array format \u03B4N = [d1, d2, d3, d4]: ")
+                        dn_float = np.array(ast.literal_eval(particular_dn), dtype=float)  # ← convierte a floats
+                        print("δN =", dn_float)
+                        print("Name the CHGCAR files with", particular_dn, "following the same order.")
+                        FILE1 = input("Enter name of file 1: ")
+                        FILE2 = input("Enter name of file 2: ")
+                        FILE3 = input("Enter name of file 3: ")
+                        FILE4 = input("Enter name of file 4: ")
+                        print("\nThis will take a few seconds.\n")
+
+                        Fukui_interpolation(FILE1, FILE2, FILE3, FILE4, particular_dn)
+
+                        continue
 
                 else:
                     print("Invalid option. Please select an option from the menu.")
