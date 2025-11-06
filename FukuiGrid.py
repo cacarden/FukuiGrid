@@ -1249,7 +1249,7 @@ def main_menu():
 
                 option1 = input("Choose an option: ")
                 if option1 == "11":
-                    print("Do you want to use the default array of electron fractions corresponding to the charge density files? \u03B4N = [-0.15, -0.10, -0.05, 0.0]")
+                    print("Do you want to use the default \u03B4N values [-0.15, -0.10, -0.05, 0.0]?")
                     print("111 Yes, I would like to use the default array")
                     print("112 No, I prefer to define my own values")
                     option11 = input("Choose an option: ")
@@ -1280,7 +1280,7 @@ def main_menu():
                         continue
     
                 if option1 == "12":
-                    print("Do you want to use the default array of electron fractions corresponding to the charge density files? \u03B4N= [0.0, +0.05, +0.10, +0.15]")
+                    print("Do you want to use the default \u03B4N values [0.0, +0.05, +0.10, +0.15]?")
                     print("121 Yes, I would like to use the default array")
                     print("122 No, I prefer to define my own values")
                     option12 = input("Choose an option: ")
@@ -1308,7 +1308,7 @@ def main_menu():
                         FILE4 = input("Enter name of file 4: ")
                         print("\nThis will take a few seconds.\n")
 
-                        Fukui_interpolation(FILE1, FILE2, FILE3, FILE4, particular_dn)
+                        Fukui_interpolation(FILE1, FILE2, FILE3, FILE4, dn_float)
 
                         continue
 
