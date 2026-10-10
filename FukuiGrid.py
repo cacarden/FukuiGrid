@@ -68,20 +68,11 @@ def write_fukui_file(FILE1, NATOMS, fukui, filename):
                 else:
                     break
 
-        # Ahora procesamos y escribimos los datos de 'fukui'
-        num_full_rows = fukui.size // 5
-        last_row_size = fukui.size % 5
-        
-        if last_row_size == 0:
-            fukui_matrix = fukui.reshape(-1, 5)
-        else:
-            fukui_matrix = np.zeros((num_full_rows + 1, 5))
-            fukui_matrix[:num_full_rows] = fukui[:num_full_rows * 5].reshape(-1, 5)
-            fukui_matrix[-1, :last_row_size] = fukui[num_full_rows * 5:]
-        
-        # Escribir los datos de 'fukui' en el archivo
-        for row in fukui_matrix:
-            formatted_row = " ".join(f"{value: .11E}" for value in row if value != 0)
+        # Write all actual grid points, including true zeros.
+        # Slice the final row rather than padding it with artificial zeros.
+        for start in range(0, fukui.size, 5):
+            row = fukui[start:start + 5]
+            formatted_row = " ".join(f"{value: .11E}" for value in row)
             FUKUIFILE.write(formatted_row + "\n")
     print('file saved: ',filename)
     return filename
